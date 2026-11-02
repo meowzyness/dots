@@ -20,6 +20,7 @@
 			battery.warning_threshhold = 20;
 
 			shell = {
+				settings_expand_all_groups = true;
 				button_borders = false;
 				card_borders = false;
 				input_borders = false;
@@ -57,9 +58,9 @@
 					actions = [
 						{ action = "lock";             shortcut = "1"; variant = "outline";     enabled = true;  countdown_seconds = 0.0; }
 						{ action = "logout";           shortcut = "2"; variant = "default";     enabled = true;  countdown_seconds = 0.0; }
-						{ action = "reboot";           shortcut = "3"; variant = "default";     enabled = true;  countdown_seconds = 0.0; }
-						{ action = "shutdown";         shortcut = "4"; variant = "secondary";   enabled = true;  countdown_seconds = 0.0; }
-						{ action = "lock_and_suspend"; shortcut = "3"; variant = "default";     enabled = false; countdown_seconds = 0.0; }
+						{ action = "lock_and_suspend"; shortcut = "3"; variant = "default";     enabled = true;  countdown_seconds = 0.0; }
+						{ action = "reboot";           shortcut = "4"; variant = "default";     enabled = true;  countdown_seconds = 0.0; }
+						{ action = "shutdown";         shortcut = "5"; variant = "secondary";   enabled = true;  countdown_seconds = 0.0; }
 					];
 				};
 
@@ -124,6 +125,8 @@
 					empty_color = "surface_variant";
 					occupied_color = "surface_variant";
 					show_labels = false;
+					active_pill_size = 2.0;
+					inactive_pill_size = 4.0;
 				};
 			};
 
@@ -136,9 +139,9 @@
 			};
 
 			dock = {
-				enabled = true;
+				enabled = false;
 				auto_hide = true;
-				pinned = [ "zen-beta" "yandex-music" ];
+				pinned = [ ];
 				reserve_space = false;
 				show_instance_count = false;
 			};
@@ -266,7 +269,7 @@
 					box_height = 144.0;
 					box_width = 352.0;
 					cx = 720.0;
-					cy = 480.0;
+					cy = 432.0;
 					output = "eDP-1";
 					placement_height = 960.0;
 					placement_width = 1440.0;

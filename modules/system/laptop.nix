@@ -7,7 +7,7 @@
 	services.power-profiles-daemon.enable = true;
 
 	services.logind.settings.Login = {
-		HandlePowerKey = "suspend";
+		HandlePowerKey = "ignore";
 		# LidSwitch = "ignore";
 		HandleLidSwitch = "suspend";
 		HandleLidSwitchExternalPower = "suspend";
@@ -16,6 +16,7 @@
 		HandlePowerKeyLongPress = "poweroff";
 	};
 
+	# workaround to keep laptop off when lid is closed
 	systemd.services.resuspend-when-lid-closed = {
 		wantedBy = [ "multi-user.target" ];
 		script = ''

@@ -5,4 +5,6 @@
 	services.openssh.enable = true;
 	services.chrony.enable = true;
 	programs.fish.enable = true;
+
+	virtualisation.docker.enable = true;
 }

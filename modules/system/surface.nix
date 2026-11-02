@@ -16,7 +16,8 @@
 	services.thermald.enable = true;
 	hardware.sensor.iio.enable = true;
 
-	services.xserver.wacom.enable = true; # pen
+# 	services.xserver.wacom.enable = true;
+	services.libinput.enable = true;
 
 	hardware.graphics.extraPackages = with pkgs; [
 		intel-media-driver

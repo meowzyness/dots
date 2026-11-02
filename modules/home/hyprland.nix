@@ -1,128 +1,108 @@
-{ config, lib, pkgs, inputs, ... }:
+{ lib, pkgs, inputs, ... }:
 let
+	# converts raw lua to inline lua statement that can be used alongside nix code that will be translated to lua
+	lua = lib.generators.mkLuaInline;
+
+	# converts list to comma-seperated raw lua arguments
+	renderArgs = args:
+		lib.concatMapStringsSep ", " (arg: lib.generators.toLua {} arg) args;
+
+	# generates an inline lua function call, from function name and argument list
+	call = fn: args:
+	lib.generators.mkLuaInline "${fn}(${renderArgs args})";
+
+	# converts a list of inline lua function calls to raw lua
+	renderCalls = calls:
+	lib.concatMapStringsSep "\n" (luaCall: luaCall.expr) calls;
+
 	startup = commands:
-	{
-		_args = [
-			"hyprland.start"
-			(lib.generators.mkLuaInline ''
-				function()
-				${lib.concatMapStringsSep "\n"
-					(command: "hl.exec_cmd(${builtins.toJSON command})")
-					commands
-				}
-				end
-			'')
+		{
+			_args = [
+				"hyprland.start"
+				(lua ''
+					function()
+						${renderCalls commands}
+					end
+				'')
+			];
+		};
+
+
+	exec_cmd = command:
+		call "hl.exec_cmd" [
+			command
 		];
-	};
 
 	exec = command:
-		"hl.dsp.exec_cmd(${builtins.toJSON command})";
+		call "hl.dsp.exec_cmd" [
+			command
+		];
 
 	workspace = value:
-		"hl.dsp.focus({ workspace = ${builtins.toJSON value} })";
+		call "hl.dsp.focus" [
+			{ workspace = value; }
+		];
 
-	moveWindow = direction:
-		"hl.dsp.window.move({ direction = ${builtins.toJSON direction} })";
+	focus = value:
+		call "hl.dsp.layout" [
+			"focus ${value}"
+		];
 
-	moveToWorkspace = value:
-		"hl.dsp.window.move({ workspace = ${builtins.toJSON value} })";
+	window = {
+		move = value:
+			call "hl.dsp.window.move" [
+				{ direction = value; }
+			];
 
-	toggleFloating =
-		''hl.dsp.window.float({ action = "toggle" })'';
+		moveToWorkspace = value:
+			call "hl.dsp.window.move" [
+				{ workspace = value; }
+			];
 
-	toggleFullscreen =
-		''hl.dsp.window.fullscreen({
-			mode = "fullscreen",
-			action = "toggle",
-		})'';
+		float =
+			call "hl.dsp.window.float" [
+				{ action = "toggle"; }
+			];
 
-	bind =
-		key:
-		action:
+		fullscreen =
+			call "hl.dsp.window.fullscreen" [
+				{
+					mode = "fullscreen";
+					action = "toggle";
+				}
+			];
+
+		close = call "hl.dsp.window.close" [];
+		drag = call "hl.dsp.window.drag" [];
+		resize = call "hl.dsp.window.resize" [];
+	};
+
+	bind = key: action:
 		{
 			_args = [
 				key
-				(lib.generators.mkLuaInline action)
+				action
 				{ }
 			];
 		};
 
-	binde =
-		key:
-		action:
+	binde = key: action:
 		{
 			_args = [
 				key
-				(lib.generators.mkLuaInline action)
+				action
 				{ repeating = true; }
 			];
 		};
 
-	bindm =
-		key:
-		action:
+	bindm = key: action:
 		{
 			_args = [
 				key
-				(lib.generators.mkLuaInline action)
+				action
 				{ mouse = true; }
 			];
 		};
-
-	mkBezier =
-		{
-			name,
-			points,
-		}:
-		let
-			luaPoints = lib.concatStringsSep ", " (
-				map
-				(point:
-					"{
-						${toString (builtins.elemAt point 0)},
-						${toString (builtins.elemAt point 1)}
-					}"
-				)
-				points
-			);
-		in
-			''hl.curve("${name}", {
-				type = "bezier",
-				points = { ${luaPoints} },
-			})'';
-
-	mkAnimation =
-		{
-			leaf,
-			enabled ? true,
-			speed ? null,
-			bezier ? null,
-			spring ? null,
-			style ? null,
-		}:
-
-		assert enabled -> speed != null;
-		assert !(bezier != null && spring != null);
-
-		let
-			fields =
-			[
-				"leaf = ${builtins.toJSON leaf}"
-				"enabled = ${if enabled then "true" else "false"}"
-			]
-			++ lib.optional (enabled && speed != null)
-				"speed = ${builtins.toJSON speed}"
-			++ lib.optional (enabled && bezier != null)
-				"bezier = ${builtins.toJSON bezier}"
-			++ lib.optional (enabled && spring != null)
-				"spring = ${builtins.toJSON spring}"
-			++ lib.optional (enabled && style != null)
-				"style = ${builtins.toJSON style}";
-		in
-			"hl.animation({ ${lib.concatStringsSep ", " fields} })";
-
-	mkAnimations = animations:
-		lib.concatStringsSep "\n" (map mkAnimation animations);
 in
 {
 	stylix.targets.hyprland.enable = true;
@@ -171,13 +151,21 @@ in
 					gaps_in = 2;
 					gaps_out = 10;
 					border_size = 0;
-					layout = "master";
+					layout = "scrolling";
 				};
 
 				master = {
 					mfact = 0.60;
 					new_on_top = true;
 					orientation = "left";
+				};
+
+				scrolling = {
+					column_width = 0.9;
+					fullscreen_on_one_column = true;
+					direction = "right";
+					wrap_focus = true;
+# 					focus_fit_method = 0;
 				};
 
 				decoration = {
@@ -201,6 +189,9 @@ in
 
 
 				gestures = {
+					workspace_swipe_touch = true;
+					workspace_swipe_cancel_ratio = 0.15;
+
 					workspace_swipe_distance = 1000;
 					workspace_swipe_min_speed_to_force = 10;
 					workspace_swipe_create_new = true;
@@ -211,7 +202,7 @@ in
 						sensitivity = 1.5;
 						long_press_delay = 400;
 						resize_on_border_long_press = true;
-						edge_margin = 50;
+						edge_margin = 75;
 					};
 				};
 
@@ -230,10 +221,9 @@ in
 
 			on = [
 				(startup [
-					"noctalia"
-					"vicinae server"
-					"clash-verge"
-					"foot -s"
+					(exec_cmd "noctalia -d")
+					(exec_cmd "clash-verge-service")
+					(exec_cmd "foot -s")
 				])
 			];
 
@@ -246,12 +236,14 @@ in
 			];
 
 			bind = [
+				# SHELL
+
 				# logout
 				(bind "ALT + BACKSPACE"
-				(exec "noctalia msg panel-open session"))
+				(exec "noctalia msg panel-toggle session"))
 
 				(bind "XF86PowerOff"
-				(exec "noctalia msg panel-open session"))
+				(exec "noctalia msg panel-toggle session"))
 
 				# screen capture / recording
 				(bind "SUPER + S"
@@ -260,24 +252,42 @@ in
 				(bind "SUPER + ALT + S"
 				(exec "noctalia msg screenshot-region"))
 
-				# shell
+				# other shell stuff
 				(bind "ALT + W"
-				(exec "noctalia msg panel-open control-center"))
+				(exec "noctalia msg panel-toggle control-center"))
 
 				(bind "ALT + E"
-				(exec "noctalia msg panel-open tray-drawer"))
+				(exec "noctalia msg panel-toggle tray-drawer"))
 
 				(bind "ALT + V"
-				(exec "noctalia msg panel-open clipboard"))
+				(exec "noctalia msg panel-toggle clipboard"))
 
 				(bind "ALT + U"
-				(exec "noctalia msg panel-open control-center bluetooth"))
+				(exec "noctalia msg panel-toggle control-center bluetooth"))
 
 				(bind "ALT + I"
-				(exec "noctalia msg panel-open control-center network"))
+				(exec "noctalia msg panel-toggle control-center network"))
 
 				(bind "ALT + RETURN"
-				(exec "noctalia msg panel-open launcher"))
+				(exec "noctalia msg panel-toggle launcher"))
+
+				# audio
+				(bind "XF86AudioMute"
+				(exec "noctalia msg volume-mute"))
+
+				(binde "XF86AudioRaiseVolume"
+				(exec "noctalia msg volume-up"))
+
+				(binde "XF86AudioLowerVolume"
+				(exec "noctalia msg volume-down"))
+
+				# brightness
+				(binde "XF86MonBrightnessUp"
+				(exec "noctalia msg brightness-up"))
+
+				(binde "XF86MonBrightnessDown"
+				(exec "noctalia msg brightness-down"))
+
 
 
 				# apps
@@ -302,33 +312,51 @@ in
 				(bind "SUPER + D"
 				(exec "doas systemctl restart home-manager-$USER.service"))
 
+
 				# windows
-				(bind "ALT + TAB"
-				"hl.dsp.layout('cyclenext')")
+				(binde "ALT + TAB"
+				(focus "down"))
 				(binde "ALT + Q"
-				"hl.dsp.window.close()")
-				# "SUPER, Q, exec, hyprctl kill"
+				window.close)
 
-				# # tags
 				(bind "ALT + ESCAPE"
-				toggleFloating)
+				window.float)
 				(bind "ALT + F"
-				toggleFullscreen)
+				window.fullscreen)
 
-				# mouse
-				# "SUPER, mouse:274, killactive"
 
-				# move window
-				(bind "SUPER + ALT + RIGHT" (moveWindow "right"))
-				(bind "SUPER + ALT + LEFT" (moveWindow "left"))
-				(bind "SUPER + ALT + UP" (moveWindow "up"))
-				(bind "SUPER + ALT + DOWN" (moveWindow "down"))
 
-				# move focus
-				# "CTRL_ALT, RIGHT, movefocus, r"
-				# "CTRL_ALT, LEFT,  movefocus, l"
-				# "CTRL_ALT, UP,	movefocus, u"
-				# "CTRL_ALT, DOWN,  movefocus, d"
+				# SUPER - indicates any layout focus update
+				# ALT - means action is local to current workspace, otherwise it can switch workspaces
+				# CTRL - means grab the window too
+
+
+				# inside workspace only
+				(binde "ALT + SUPER + RIGHT" (focus "right"))
+				(binde "ALT + SUPER + LEFT" (focus "left"))
+				(binde "ALT + SUPER + UP" (focus "up"))
+				(binde "ALT + SUPER + DOWN" (focus "down"))
+
+				# inside workspace only + grab
+				(bind "ALT + SUPER + CTRL + RIGHT" (window.move "right"))
+				(bind "ALT + SUPER + CTRL + LEFT" (window.move "left"))
+				(bind "ALT + SUPER + CTRL + UP" (window.move "up"))
+				(bind "ALT + SUPER + CTRL + DOWN" (window.move "down"))
+
+
+				# auto
+				(binde "SUPER + LEFT" (focus "left"))
+				(binde "SUPER + RIGHT" (focus "right"))
+				(binde "SUPER + UP" (workspace "-1"))
+				(binde "SUPER + DOWN" (workspace "+1"))
+
+				# auto + grab
+				(bind "SUPER + CTRL + LEFT" (window.move "left"))
+				(bind "SUPER + CTRL + RIGHT" (window.move "right"))
+				(binde "SUPER + CTRL + UP" (window.moveToWorkspace "-1"))
+				(binde "SUPER + CTRL + DOWN" (window.moveToWorkspace "+1"))
+
+
 
 				# workspaces
 				(bind "SUPER + 1" (workspace "1"))
@@ -339,261 +367,308 @@ in
 				(bind "SUPER + 6" (workspace "6"))
 				(bind "SUPER + ESCAPE" (workspace "empty"))
 
-				# audio
-				(bind "XF86AudioMute" (exec "noctalia msg volume-mute"))
-				(binde "XF86AudioRaiseVolume"
-				(exec "noctalia msg volume-up"))
-
-				(binde "XF86AudioLowerVolume"
-				(exec "noctalia msg volume-down"))
-
-				# brightness
-				(binde "XF86MonBrightnessUp"
-				(exec "noctalia msg brightness-up"))
-
-				(binde "XF86MonBrightnessDown"
-				(exec "noctalia msg brightness-down"))
-
-				# workspaces
-				(binde "SUPER + RIGHT" (workspace "+1"))
-				(binde "SUPER + LEFT" (workspace "-1"))
-
-				(binde "SUPER + CTRL + RIGHT" (moveToWorkspace "+1"))
-				(binde "SUPER + CTRL + LEFT" (moveToWorkspace "-1"))
-
 				# mouse window management
 				(bindm "SUPER + mouse:272"
-				"hl.dsp.window.drag()")
+				window.drag)
 
 				(bindm "SUPER + mouse:273"
-				"hl.dsp.window.resize()")
+				window.resize)
 			];
 		};
-		extraConfig = ''
-			hl.gesture({
-				fingers = 3,
-				direction = "horizontal",
-				action = "workspace",
-			})
+		extraConfig = renderCalls [
+			(call "hl.gesture" [
+				{
+					fingers = 3;
+					direction = "vertical";
+					action = "workspace";
+				}
+			])
 
-			hl.plugin.hyprgrass.gesture({
+			(call "hl.gesture" [
+				{
+					fingers = 3;
+					direction = "horizontal";
+					action = "scroll_move";
+				}
+			])
+
+			(call "hl.plugin.hyprgrass.gesture" [
+				{
+					pattern = {
+						kind = "swipe";
+						fingers = 3;
+						direction = "vertical";
+					};
+					action = "workspace";
+				}
+			])
+
+			(call "hl.plugin.hyprgrass.gesture" [
+				{
+					pattern = {
+						kind = "pinch";
+						fingers = 4;
+						direction = "pinchout";
+					};
+					action = "close";
+				}
+			])
+
+			(call "hl.plugin.hyprgrass.bind" [
+				{
+					pattern = {
+						kind = "edge";
+						origin = "down";
+						direction = "up";
+					};
+					action = (workspace "+1");
+					non_consuming = true;
+				}
+			])
+
+			(call "hl.plugin.hyprgrass.bind" [
+				{
+					pattern = {
+						kind = "edge";
+						origin = "up";
+						direction = "down";
+					};
+					action = (workspace "+1");
+					non_consuming = true;
+				}
+			])
+
+			(call "hl.plugin.hyprgrass.bind" [
+				{
+					pattern = {
+						kind = "edge";
+						origin = "left";
+						direction = "right";
+					};
+					action = (focus "left");
+					non_consuming = true;
+				}
+			])
+
+			(call "hl.plugin.hyprgrass.bind" [
+			{
 				pattern = {
-					kind = "swipe",
-					fingers = 3,
-					direction = "down",
-				},
-				action = "close",
-			})
-
-			hl.plugin.hyprgrass.gesture({
-				pattern = {
-					kind = "pinch",
-					fingers = 3,
-					direction = "pinchout",
-				},
-				action = "close",
-			})
-
-			hl.plugin.hyprgrass.bind({
-				pattern = {
-					kind = "edge",
-					origin = "right",
-					direction = "left",
-					fingers = 1,
-				},
-				action = hl.dsp.focus({ workspace = "+1" }),
-				non_consuming = true,
-			})
-
-			hl.plugin.hyprgrass.bind({
-				pattern = {
-					kind = "edge",
-					origin = "left",
-					direction = "right",
-					fingers = 1,
-				},
-				action = hl.dsp.focus({ workspace = "-1" }),
-				non_consuming = true,
-			})
-
-			hl  .plugin.hyprgrass.bind({
-				pattern = {
-					kind = "edge",
-					origin = "down",
-					direction = "up",
-					fingers = 1,
-				},
-				action = hl.dsp.exec_cmd("pkill wvkbd-mobintl || wvkbd-mobintl -L 300 -R 5 --landscape-layers simple,special,cyrillic"),
-			})
-
-			hl.plugin.hyprgrass.bind({
-				pattern = {
-					kind = "edge",
-					origin = "up",
-					direction = "down",
-					fingers = 1,
-				},
-				action = hl.dsp.exec_cmd("noctalia msg panel-open launcher"),
-			})
-
-			hl.plugin.hyprgrass.bind({
-				pattern = {
-					kind = "longpress",
-					fingers = 2,
-				},
-				action = hl.dsp.window.drag(),
-				mouse = true,
-				non_consuming = true,
-			})
-
-			hl.plugin.hyprgrass.bind({
-				pattern = {
-					kind = "pinch",
-					fingers = 3,
-					direction = "pinchin",
-				},
-				action = hl.dsp.window.fullscreen({
-					mode = "fullscreen",
-					action = "toggle",
-					non_consuming = true,
-				}),
-			})
-
-			${
-				let curves = [
-					(mkBezier {
-						name = "fast";
-						points = [
-							[ 0.16 1.0 ]
-							[ 0.30 1.0 ]
-						];
-					})
-
-					(mkBezier {
-						name = "smooth";
-						points = [
-							[ 0.22 1.0 ]
-							[ 0.36 1.0 ]
-						];
-					})
-
-					(mkBezier {
-						name = "linear";
-						points = [
-							[ 0.0 0.0 ]
-							[ 1.0 1.0 ]
-						];
-					})
-				];
-				in lib.concatStringsSep "\n\n" curves
-			}
-
-			${
-			mkAnimations [
-				{
-					leaf = "global";
-					speed = 3;
-					bezier = "fast";
+					kind = "edge";
+					origin = "right";
+					direction = "left";
+				};
+					action = (focus "right");
+					non_consuming = true;
 				}
+			])
 
+			(call "hl.plugin.hyprgrass.gesture" [
 				{
-					leaf = "windows";
-					speed = 3;
-					bezier = "fast";
+					pattern = {
+						kind = "swipe";
+						fingers = 2;
+						direction = "up";
+					};
+					action = lua ''
+						function()
+							hl.exec_cmd(
+								"pkill wvkbd-mobintl || wvkbd-mobintl -L 300 -R 5 --landscape-layers simple,special,cyrillic"
+							)
+						end
+					'';
 				}
+			])
 
+			(call "hl.plugin.hyprgrass.gesture" [
 				{
-					leaf = "windowsIn";
-					speed = 3;
-					bezier = "fast";
-					style = "popin 85%";
+					pattern = {
+						kind = "swipe";
+						fingers = 2;
+						direction = "down";
+					};
+					action = lua ''
+						function()
+							hl.exec_cmd("noctalia msg panel-toggle launcher")
+						end
+					'';
 				}
+			])
 
+			(call "hl.plugin.hyprgrass.bind" [
 				{
-					leaf = "windowsOut";
-					speed = 2;
-					bezier = "fast";
-					style = "popin 85%";
+					pattern = {
+						kind = "longpress";
+						fingers = 2;
+					};
+					action = window.drag;
+					mouse = true;
+					non_consuming = true;
 				}
+			])
 
+			(call "hl.plugin.hyprgrass.bind" [
 				{
-					leaf = "windowsMove";
-					speed = 3;
-					bezier = "fast";
+					pattern = {
+						kind = "pinch";
+						fingers = 3;
+						direction = "pinchin";
+					};
+					action = window.fullscreen;
 				}
+			])
 
+			(call "hl.curve" [
+				"fast"
 				{
-					leaf = "layers";
-					speed = 3;
-					bezier = "fast";
+					type = "bezier";
+					points = [
+						[ 0.160000 1.000000 ]
+						[ 0.300000 1.000000 ]
+					];
 				}
+			])
 
+			(call "hl.curve" [
+				"smooth"
 				{
-					leaf = "layersIn";
-					speed = 3;
-					bezier = "fast";
-					style = "popin";
+					type = "bezier";
+					points = [
+						[ 0.220000 1.000000 ]
+						[ 0.360000 1.000000 ]
+					];
 				}
+			])
 
+			(call "hl.curve" [
+				"linear"
 				{
-					leaf = "layersOut";
-					speed = 2;
-					bezier = "fast";
-					style = "popin";
+					type = "bezier";
+					points = [
+						[ 0.000000 0.000000 ]
+						[ 1.000000 1.000000 ]
+					];
 				}
+			])
 
-				{
-					leaf = "fade";
-					speed = 2;
-					bezier = "smooth";
-				}
+			(call "hl.animation" [{
+				leaf = "global";
+				enabled = true;
+				speed = 3;
+				bezier = "fast";
+			}])
 
-				{
-					leaf = "fadeIn";
-					speed = 2;
-					bezier = "smooth";
-				}
+			(call "hl.animation" [{
+				leaf = "windows";
+				enabled = true;
+				speed = 3;
+				bezier = "fast";
+			}])
 
-				{
-					leaf = "fadeOut";
-					speed = 2;
-					bezier = "smooth";
-				}
+			(call "hl.animation" [{
+				leaf = "windowsIn";
+				enabled = true;
+				speed = 3;
+				bezier = "fast";
+				style = "popin 85%";
+			}])
 
-				{
-					leaf = "workspaces";
-					speed = 3;
-					bezier = "fast";
-					style = "slide";
-				}
+			(call "hl.animation" [{
+				leaf = "windowsOut";
+				enabled = true;
+				speed = 2;
+				bezier = "fast";
+				style = "popin 85%";
+			}])
 
-				{
-					leaf = "workspacesIn";
-					speed = 3;
-					bezier = "fast";
-					style = "slide";
-				}
+			(call "hl.animation" [{
+				leaf = "windowsMove";
+				enabled = true;
+				speed = 3;
+				bezier = "fast";
+			}])
 
-				{
-					leaf = "workspacesOut";
-					speed = 2;
-					bezier = "fast";
-					style = "slide";
-				}
+			(call "hl.animation" [{
+				leaf = "layers";
+				enabled = true;
+				speed = 3;
+				bezier = "fast";
+			}])
 
-				{
-					leaf = "border";
-					speed = 2;
-					bezier = "fast";
-				}
+			(call "hl.animation" [{
+				leaf = "layersIn";
+				enabled = true;
+				speed = 3;
+				bezier = "fast";
+				style = "popin";
+			}])
 
-				{
-					leaf = "borderangle";
-					speed = 3;
-					bezier = "linear";
-					style = "loop";
-				}
-			]}
-		'';
+			(call "hl.animation" [{
+				leaf = "layersOut";
+				enabled = true;
+				speed = 2;
+				bezier = "fast";
+				style = "popin";
+			}])
+
+			(call "hl.animation" [{
+				leaf = "fade";
+				enabled = true;
+				speed = 2;
+				bezier = "smooth";
+			}])
+
+			(call "hl.animation" [{
+				leaf = "fadeIn";
+				enabled = true;
+				speed = 2;
+				bezier = "smooth";
+			}])
+
+			(call "hl.animation" [{
+				leaf = "fadeOut";
+				enabled = true;
+				speed = 2;
+				bezier = "smooth";
+			}])
+
+			(call "hl.animation" [{
+				leaf = "workspaces";
+				enabled = true;
+				speed = 3;
+				bezier = "fast";
+				style = "slidevert";
+			}])
+
+			(call "hl.animation" [{
+				leaf = "workspacesIn";
+				enabled = true;
+				speed = 3;
+				bezier = "fast";
+				style = "slidevert";
+			}])
+
+			(call "hl.animation" [{
+				leaf = "workspacesOut";
+				enabled = true;
+				speed = 2;
+				bezier = "fast";
+				style = "slidevert";
+			}])
+
+			(call "hl.animation" [{
+				leaf = "border";
+				enabled = true;
+				speed = 2;
+				bezier = "fast";
+			}])
+
+			(call "hl.animation" [{
+				leaf = "borderangle";
+				enabled = true;
+				speed = 3;
+				bezier = "linear";
+				style = "loop";
+			}])
+		];
 	};
 }

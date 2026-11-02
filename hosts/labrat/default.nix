@@ -14,7 +14,6 @@
 		../../modules/system/bluetooth.nix
 		../../modules/system/audio.nix
 		../../modules/system/graphics.nix
-		../../modules/system/input.nix
 
 		../../modules/system/nix.nix
 		../../modules/system/impermanence.nix
@@ -25,7 +24,6 @@
 		../../modules/system/desktop.nix
 		../../modules/system/security.nix
 
-		../../modules/system/docker.nix
 		../../modules/system/gaming.nix
 
 		../../users/meowzy
