@@ -24,8 +24,7 @@
 
 			# UI, fonts, graphics
 			glib
-			gtk3
-			gtk2
+			gtk4
 			fontconfig
 			freetype
 			libxkbcommon
@@ -68,7 +67,16 @@
 	};
 
 
-	nixpkgs.config.allowUnfree = true;
-# 	environment.systemPackages = with pkgs; [
-# 	];
+	nixpkgs.config = {
+		allowBroken = true; # idc i just want it to build
+		allowUnfree = true;
+
+		# temporary
+		problems.handlers = {
+			"gtk+".broken = "warn";
+		};
+	};
+	environment.systemPackages = with pkgs; [
+
+	];
 }

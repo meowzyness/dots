@@ -108,14 +108,14 @@ in
 	stylix.targets.hyprland.enable = true;
 	wayland.windowManager.hyprland = {
 		enable = true;
-		package = null;
-		# package = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
+		package = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
 		# portalPackage = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
 		portalPackage = null;
 
 		plugins = [
+# 			pkgs.hyprlandPlugins.hyprgrass
 			inputs.hyprgrass.packages.${pkgs.stdenv.hostPlatform.system}.default
-			# inputs.Hyprspace.packages.${pkgs.stdenv.hostPlatform.system}.Hyprspace
+# 			inputs.Hyprspace.packages.${pkgs.stdenv.hostPlatform.system}.Hyprspace
 		];
 
 		configType = "lua";
@@ -433,7 +433,7 @@ in
 						origin = "up";
 						direction = "down";
 					};
-					action = (workspace "+1");
+					action = (workspace "-1");
 					non_consuming = true;
 				}
 			])

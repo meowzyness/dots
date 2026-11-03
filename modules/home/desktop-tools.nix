@@ -7,5 +7,6 @@
 		wl-clipboard
 		wf-recorder
 		hyprpicker
+		wvkbd
 	];
 }

@@ -3,12 +3,7 @@
 	programs.fish = {
 		enable = true;
 
-		plugins = [
-			{
-				name = "tide";
-				src = pkgs.fishPlugins.tide.src;
-			}
-		];
+		plugins = [ ];
 
 		loginShellInit = ''
 			doas chronyc makestep 1>/dev/null
@@ -20,7 +15,7 @@
 		'';
 
 		functions = {
-			colored = ''script -q -c "$SHELL -i -c '$argv'" /dev/null | tr -d '\r' '';
+			colored = ''PAGER=cat unbuffer fish -ic "stty -onlcr; $argv"'';
 
 			### CONFIGURATION #####################################################################################################################################################################################
 			renixos = "nh os switch ~/dots $argv";
@@ -69,8 +64,7 @@
 
 			tf = # Throw away packages using Fzf
 			''
-				test -n "$argv" && set argv ""
-				lspacs | grep "$argv" | fz --preview "nix profile list --json | jq '{\"{}\" : .elements.\"{}\"}'" | cut -d " " -f 1 | read -l input; delete $input
+				lspacs | grep "$argv" | fz --preview "nix profile list --json | jq -C '{\"{}\" : .elements.\"{}\"}'" | read -l input; delete $input
 				test $status -eq 0 && tf
 			'';
 

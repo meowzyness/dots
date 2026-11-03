@@ -14,6 +14,7 @@
 		eza
 		fzf
 		skim
+		tldr
 
 		bat-extras.batdiff
 		bat-extras.batgrep
@@ -30,6 +31,7 @@
 		flow-control
 		github-cli
 		ani-cli
+		bottom
 		jolt-tui
 	];
 
