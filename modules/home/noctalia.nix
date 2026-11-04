@@ -1,4 +1,4 @@
-{ config, pkgs, inputs, ... }:
+{ osConfig, config, pkgs, inputs, ... }:
 {
 	imports = [
 		inputs.noctalia.homeModules.default
@@ -55,13 +55,21 @@
 				session = {
 					grid = true;
 					grid_columns = 1;
-					actions = [
-						{ action = "lock";             shortcut = "1"; variant = "outline";     enabled = true;  countdown_seconds = 0.0; }
-						{ action = "logout";           shortcut = "2"; variant = "default";     enabled = true;  countdown_seconds = 0.0; }
-						{ action = "lock_and_suspend"; shortcut = "3"; variant = "default";     enabled = true;  countdown_seconds = 0.0; }
-						{ action = "reboot";           shortcut = "4"; variant = "default";     enabled = true;  countdown_seconds = 0.0; }
-						{ action = "shutdown";         shortcut = "5"; variant = "secondary";   enabled = true;  countdown_seconds = 0.0; }
-					];
+
+					actions = if osConfig.networking.hostName == "labrat"
+						then [
+							{ action = "lock";             shortcut = "1"; variant = "outline";     enabled = true;  countdown_seconds = 0.0; }
+							{ action = "logout";           shortcut = "2"; variant = "default";     enabled = true;  countdown_seconds = 0.0; }
+							{ action = "reboot";           shortcut = "3"; variant = "default";     enabled = true;  countdown_seconds = 0.0; }
+							{ action = "shutdown";         shortcut = "4"; variant = "secondary";   enabled = true;  countdown_seconds = 0.0; }
+						]
+						else [
+							{ action = "lock";             shortcut = "1"; variant = "outline";     enabled = true;  countdown_seconds = 0.0; }
+							{ action = "logout";           shortcut = "2"; variant = "default";     enabled = true;  countdown_seconds = 0.0; }
+							{ action = "lock_and_suspend"; shortcut = "3"; variant = "default";     enabled = true;  countdown_seconds = 0.0; }
+							{ action = "reboot";           shortcut = "4"; variant = "default";     enabled = true;  countdown_seconds = 0.0; }
+							{ action = "shutdown";         shortcut = "5"; variant = "secondary";   enabled = true;  countdown_seconds = 0.0; }
+						];
 				};
 
 				shadow = {
@@ -203,7 +211,10 @@
 
 					lock-and-suspend = {
 						action = "lock_and_suspend";
-						enabled = false;
+						enabled =
+						if osConfig.networking.hostName == "labrat"
+						then false
+						else true;
 						timeout = 1900.0;
 					};
 
