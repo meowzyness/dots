@@ -52,6 +52,8 @@
 			url = "github:0xc000022070/zen-browser-flake";
 			inputs.nixpkgs.follows = "nixpkgs";
 		};
+
+		nixcord.url = "github:4evy/nixcord";
 	};
 
 	outputs = { nixpkgs, home-manager, ... }@inputs:

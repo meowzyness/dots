@@ -12,6 +12,7 @@
 		interactiveShellInit = ''
 			set -g fish_greeting ""
 			set -g EDITOR micro
+			devenv hook fish | source
 		'';
 
 		functions = {

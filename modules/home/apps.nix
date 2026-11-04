@@ -1,11 +1,9 @@
-# Graphical apps
-{ pkgs, ... }:
+{ inputs, pkgs, ... }:
 {
 	home.packages = with pkgs;
 	[
 		# GUI
 		ayugram-desktop
-		vesktop
 		yandex-music
 		godot
 		vscode
@@ -15,5 +13,13 @@
 	programs.mpv = {
 		enable = true;
 		scripts = [ pkgs.mpvScripts.mpris ];
+	};
+
+	imports = [ inputs.nixcord.homeModules.nixcord ];
+
+	programs.nixcord = {
+		enable = true;
+		discord.vencord.enable = true;
+		config.plugins.hideMedia.enable = true;
 	};
 }
