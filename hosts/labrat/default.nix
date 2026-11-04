@@ -14,6 +14,7 @@
 		../../modules/system/bluetooth.nix
 		../../modules/system/audio.nix
 		../../modules/system/graphics.nix
+		../../modules/system/rgb.nix
 
 		../../modules/system/nix.nix
 		../../modules/system/impermanence.nix

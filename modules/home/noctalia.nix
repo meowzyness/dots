@@ -122,8 +122,7 @@
 					drawer_item_size = 20.0;
 				};
 				workspaces = {
-					empty_color = "surface_variant";
-					occupied_color = "surface_variant";
+					occupied_color = "surface_container";
 					show_labels = false;
 					active_pill_size = 2.0;
 					inactive_pill_size = 4.0;
